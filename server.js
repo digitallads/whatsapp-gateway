@@ -1,15 +1,50 @@
 require('dotenv').config();
 
 const Fastify = require('fastify');
+const { Queue, Worker } = require('bullmq');
+const IORedis = require('ioredis');
 
 const app = Fastify({
   logger: true
 });
 
+const connection = new IORedis({
+  host: process.env.REDIS_HOST,
+  port: process.env.REDIS_PORT
+});
+
+const messageQueue = new Queue('messages', {
+  connection
+});
+
+const worker = new Worker(
+  'messages',
+  async job => {
+    console.log('Processando mensagem:', job.data);
+
+    // Aqui depois entra UazAPI
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    console.log('Mensagem processada');
+  },
+  {
+    connection
+  }
+);
+
+worker.on('completed', job => {
+  console.log(`Job ${job.id} concluído`);
+});
+
+worker.on('failed', (job, err) => {
+  console.error(`Job falhou: ${err.message}`);
+});
+
 app.get('/', async () => {
   return {
     status: 'ok',
-    service: 'whatsapp-gateway'
+    service: 'whatsapp-gateway',
+    queue: 'online'
   };
 });
 
@@ -17,7 +52,7 @@ app.post('/send-message', async (request, reply) => {
   try {
     const { instanceId, number, message } = request.body;
 
-    console.log('Mensagem recebida:', {
+    const job = await messageQueue.add('send', {
       instanceId,
       number,
       message
@@ -25,7 +60,8 @@ app.post('/send-message', async (request, reply) => {
 
     return {
       success: true,
-      status: 'queued'
+      queued: true,
+      jobId: job.id
     };
   } catch (err) {
     console.error(err);
