@@ -1,5 +1,5 @@
 require('dotenv').config();
-
+const axios = require('axios');
 const Fastify = require('fastify');
 const { Queue, Worker } = require('bullmq');
 const IORedis = require('ioredis');
