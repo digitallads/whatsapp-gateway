@@ -22,13 +22,71 @@ const messageQueue = new Queue('messages', {
 const worker = new Worker(
   'messages',
   async job => {
-    console.log('Processando mensagem:', job.data);
+  try {
+    const { instanceId, number, message } = job.data;
 
-    // Aqui depois entra UazAPI
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    console.log('Iniciando warmup da sessão...');
 
-    console.log('Mensagem processada');
-  },
+    // 1. PRESENCE COMPOSING
+    await axios.post(
+      'https://crmx1.uazapi.com/message/presence',
+      {
+        number,
+        presence: 'composing',
+        delay: 5000
+      },
+      {
+        headers: {
+          token: process.env.UAZAPI_TOKEN
+        }
+      }
+    );
+
+    console.log('Presence enviada');
+
+    // Delay humano
+    await new Promise(resolve => setTimeout(resolve, 4000));
+
+    console.log('Enviando mensagem...');
+
+    // 2. ENVIO REAL
+    const sendResponse = await axios.post(
+      'https://crmx1.uazapi.com/send/text',
+      {
+        number,
+        text: message
+      },
+      {
+        headers: {
+          token: process.env.UAZAPI_TOKEN
+        }
+      }
+    );
+
+    console.log('Mensagem enviada:', sendResponse.data);
+
+    // 3. PAUSED
+    await axios.post(
+      'https://crmx1.uazapi.com/message/presence',
+      {
+        number,
+        presence: 'paused'
+      },
+      {
+        headers: {
+          token: process.env.UAZAPI_TOKEN
+        }
+      }
+    );
+
+    console.log('Pipeline concluído');
+
+  } catch (err) {
+    console.error('Erro pipeline:', err.response?.data || err.message);
+
+    throw err;
+  }
+},
   {
     connection
   }
