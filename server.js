@@ -135,12 +135,14 @@ app.post('/send-message', async (request, reply) => {
 
 const start = async () => {
   try {
-    await app.listen({
-      port: 3001,
-      host: '0.0.0.0'
-    });
+const PORT = process.env.PORT || 3001;
 
-    console.log('Gateway rodando na porta 3001');
+await app.listen({
+  port: PORT,
+  host: '0.0.0.0'
+});
+
+   console.log(`Gateway rodando na porta ${PORT}`);
   } catch (err) {
     app.log.error(err);
     process.exit(1);
